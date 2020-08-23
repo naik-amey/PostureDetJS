@@ -4,11 +4,24 @@ let poses = [];
 var started = false;
 
 function setup() {
+  let constraints = {
+    video: {
+      mandatory: {
+        minWidth: 640,
+        minHeight: 480
+      },
+      optional: [{ maxFrameRate: 2 }]
+    },
+    audio: false 
+  };
+  // createCapture(constraints, function(stream) {
+  //   console.log(stream);
+  // });
   const canvas = createCanvas(640, 480);
   canvas.parent('videoContainer');
 
   // Video capture
-  video = createCapture(VIDEO);
+  video = createCapture(constraints,VIDEO);
   video.size(width, height); // 640, 480
 
   // Create a new poseNet method with a single detection
@@ -47,13 +60,17 @@ function drawKeypoints()  {
     let pose = poses[i].pose;
     //console.log(pose.keypoints[0].position); 
     let nose_pos = pose.keypoints[0].position;
+    let nose_pos_confidence = pose.keypoints[0].score;
+    if (nose_pos_confidence < 0.8) {
+      alert("nose not found")
+    }
     //Position of eyes when a human opens experiment page. Start position.
     while(defaultNosePosition.length < 1) {
         console.log('in this while loop');
         defaultNosePosition.push(nose_pos);
         console.log(defaultNosePosition);
       }
-    if (Math.abs(nose_pos.y - defaultNosePosition[0].y) > 15) { //nose_pos.y > 200) {
+    if (Math.abs(nose_pos.y - defaultNosePosition[0].y) > 25) { //nose_pos.y > 200) { //FIXME: 25???
         alert("hunched");
         console.log(nose_pos);
         console.log(defaultNosePosition);
@@ -66,7 +83,7 @@ function drawKeypoints()  {
         fill(255, 0, 0);
         noStroke();
         ellipse(keypoint.position.x, keypoint.position.y, 10, 10);
-      }
+      } 
     }
   }
 }
