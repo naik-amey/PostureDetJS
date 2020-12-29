@@ -2,23 +2,27 @@ let video;
 let poseNet;
 let poses = [];
 var started = false;
-var startTime, endTime;
+var startTime, correct_currTime;
 var total_hunched_time = 0; // in seconds
 var total_correct_time = 0; // in seconds
 var correct_time_before_hunch = 0; // in seconds.
-let global_nose_posX=0;
-let global_nose_posY=0;
 const HunchTimeOut = 2;
 let nose_pos;
 let l_eye_pos;
 let r_eye_pos;
 let tri_area
-let avg_eye_level
 let beep
 let corr_pos = {nose_pos: 0, l_eye: 0, r_eye: 0, tri_area: 0};
 let hunch_pos = {nose_pos: 0, l_eye: 0, r_eye: 0, tri_area: 0};
 let eye_th
 let tri_area_th
+let label
+let hunch_seconds, prev_hunch_seconds
+
+// MODEL
+let model;
+let state = 'collection'
+let state2 = 'sitting'
 
 function preload() {
   beep = loadSound("beep-10.mp3"); 
@@ -36,12 +40,16 @@ function setup() {
     audio: false 
   };
 
-  //soundFormats('mp3', 'ogg');
+  let options = {
+    inputs: ['lx', 'ly', 'rx', 'ry', 'nx', 'ny', 'area'],
+    outputs: ['label'],
+    task: 'classification',
+    debug: 'true'
+  };
 
-  // https://p5js.org/reference/#/p5/createCapture
-  // createCapture(constraints, function(stream) {
-  //   console.log(stream);
-  // });
+  // default nn has 16 nodes in dense hidden layer with [inputs -> 16_dense_hidden_nodes->dense_softmax]
+  model = ml5.neuralNetwork(options)
+
   const canvas = createCanvas(640, 480);
   canvas.parent('videoContainer');
 
@@ -65,30 +73,33 @@ function setup() {
   //In order to change the detectionType to single on video, you need to pass it into the constructor directly rather than in the object.
   // https://github.com/ml5js/ml5-library/issues/355#issuecomment-500931951
   // https://github.com/ml5js/ml5-library/pull/514#issue-294370528
-  // NOT WORKINGposeNet = ml5.poseNet(video, 'single', modelReady);
-  poseNet = ml5.poseNet(video, modelReady);
+  poseNet = ml5.poseNet(video, options=posenetoptions, modelReady);
   // This sets up an event that fills the global variable "poses"
   // with an array every time new poses are detected
   poseNet.on('pose', function(results) {
     poses = results;
-    //console.log(poses); 
   });
   
   // Hide the video element, and just show the canvas
   video.hide();
+
+  // start timer
+  startTime = new Date();
+  correct_currTime = startTime;
+  hunch_seconds = 0
+  prev_hunch_seconds = 0
 }
 
 function draw() {
-    document.getElementById('myText').innerHTML = total_hunched_time;
     if (started) {
         image(video, 0, 0, width, height);
         // We can call both functions to draw all keypoints and the skeletons
         drawKeypoints();
-        keyPressed();
-        //check_posture();
-        //drawSkeleton();
-        //fill(0,255,0);
-        //ellipse(global_nose_posX,global_nose_posY,50);
+        key_operations();
+        if (state == 'prediction') {
+          color_background();
+          //measure_time();
+        }
     }
 }
 
@@ -104,12 +115,12 @@ function drawKeypoints()  {
   for (let i = 0; i < poses.length; i++) { 
     // For each pose detected, loop through all the keypoints
     let pose = poses[i].pose;
-    for (let j = 0; j < pose.keypoints.length; j++) {
+    //for (let j = 0; j < pose.keypoints.length; j++) {
+    for (let j = 0; j < 3; j++) { //because we only need nose and eyes
       // A keypoint is an object describing a body part (like rightArm or leftShoulder)
       let keypoint = pose.keypoints[j];
       // Only draw an ellipse is the pose probability is bigger than 0.8
       if (keypoint.score > 0.8) {
-      //if (keypoint.score > 0.5) {
         fill(255, 0, 0);
         noStroke();
         ellipse(keypoint.position.x, keypoint.position.y, 10, 10);
@@ -118,20 +129,23 @@ function drawKeypoints()  {
     nose_pos = pose.keypoints[0];
     l_eye_pos = pose.keypoints[1];
     r_eye_pos = pose.keypoints[2];
-    stroke(0, 0, 255);
-    line(nose_pos.position.x, nose_pos.position.y, l_eye_pos.position.x, l_eye_pos.position.y);
-    line(nose_pos.position.x, nose_pos.position.y, r_eye_pos.position.x, r_eye_pos.position.y);
-    text('('+str(int(nose_pos.position.x))+','+str(int(nose_pos.position.y))+')',nose_pos.position.x, nose_pos.position.y+10)
-    text('('+str(int(l_eye_pos.position.x))+','+str(int(l_eye_pos.position.y))+')',l_eye_pos.position.x+0, l_eye_pos.position.y-10)
-    text('('+str(int(r_eye_pos.position.x))+','+str(int(r_eye_pos.position.y))+')',r_eye_pos.position.x-10, r_eye_pos.position.y-10)
-    // area of triangle
-    tri_area = abs(nose_pos.position.x*(l_eye_pos.position.y - r_eye_pos.position.y) + l_eye_pos.position.x*(r_eye_pos.position.y - nose_pos.position.y) + r_eye_pos.position.x*(nose_pos.position.y - l_eye_pos.position.y))/2;
-    avg_eye_level = (l_eye_pos.position.y + r_eye_pos.y)/2
+    if (nose_pos.score > 0.8 &&  l_eye_pos.score > 0.8 && r_eye_pos.score > 0.8) {
+      state2 = 'sitting'
+      stroke(0, 0, 255);
+      line(nose_pos.position.x, nose_pos.position.y, l_eye_pos.position.x, l_eye_pos.position.y);
+      line(nose_pos.position.x, nose_pos.position.y, r_eye_pos.position.x, r_eye_pos.position.y);
+      text('('+str(int(nose_pos.position.x))+','+str(int(nose_pos.position.y))+')',nose_pos.position.x, nose_pos.position.y+10)
+      text('('+str(int(l_eye_pos.position.x))+','+str(int(l_eye_pos.position.y))+')',l_eye_pos.position.x+0, l_eye_pos.position.y-10)
+      text('('+str(int(r_eye_pos.position.x))+','+str(int(r_eye_pos.position.y))+')',r_eye_pos.position.x-10, r_eye_pos.position.y-10)
+      // area of triangle
+      tri_area = abs(nose_pos.position.x*(l_eye_pos.position.y - r_eye_pos.position.y) + l_eye_pos.position.x*(r_eye_pos.position.y - nose_pos.position.y) + r_eye_pos.position.x*(nose_pos.position.y - l_eye_pos.position.y))/2;
 
-    let mid_pt_x = (nose_pos.position.x + l_eye_pos.position.x + r_eye_pos.position.x) / 3
-    let mid_pt_y = (nose_pos.position.y + l_eye_pos.position.y + r_eye_pos.position.y) / 3
-    text('('+str(int(tri_area))+')',mid_pt_x, mid_pt_y)
-    //text("HI",mid_pt_x, mid_pt_y)
+      let mid_pt_x = (nose_pos.position.x + l_eye_pos.position.x + r_eye_pos.position.x) / 3
+      let mid_pt_y = (nose_pos.position.y + l_eye_pos.position.y + r_eye_pos.position.y) / 3
+      text('('+str(int(tri_area))+')',mid_pt_x, mid_pt_y)
+    } else {
+      state2 = 'invalid' //face out of frame
+    }
 
   }
 }
@@ -147,43 +161,129 @@ function record_posture1() {
   }
 }
 
-function keyPressed() {
-  text(`${key} ${keyCode}`, 10, 40);
-  print(key, ' ', keyCode);
-  if (keyCode == 32){ // recording the correct post
-    corr_pos.nose_pos = nose_pos
-    corr_pos.l_eye = l_eye_pos.position.y
-    corr_pos.r_eye = r_eye_pos.position.y
-    corr_pos.tri_area = tri_area
-    text(corr_pos.tri_area,10,50)
-  } else if (keyCode == 40) { // down arrow
-    hunch_pos.nose_pos = nose_pos
-    hunch_pos.l_eye = l_eye_pos.position.y
-    hunch_pos.r_eye = r_eye_pos.position.y
-    hunch_pos.tri_area = tri_area
-    text(hunch_pos.l_eye,10,80)
-  } else { // any other key
-    eye_th = ((corr_pos.l_eye + hunch_pos.l_eye)/2 + (corr_pos.r_eye + hunch_pos.r_eye)/2)/2 //FIXME redundant
-    text(eye_th,10,80)
-    check_posture();
+function key_operations() {
+  if (keyIsPressed === true && state == 'collection') {
+    text(`${key} ${keyCode}`, 10, 40);
+    print(key, ' ', keyCode);
+    let inputs = {
+      lx: l_eye_pos.position.x,
+      ly: l_eye_pos.position.y,
+      rx: r_eye_pos.position.x,
+      ry: r_eye_pos.position.y,
+      nx: nose_pos.position.x,
+      ny: nose_pos.position.y,
+      area: tri_area
+    }
+    console.log(inputs)
+    if (keyCode == 32){ // recording the correct post "space" key
+      text('space key', 50,50)
+      let target = {
+        label: 'correct'
+      }
+      model.addData(inputs,target)
+    } else if (keyCode == 40) { // down arrow
+      text('down key', 50,50)
+      let target = {
+        label: 'wrong'
+      }
+      model.addData(inputs,target)
+    } else if (key = 't') { 
+      console.log('starting training');
+      state = 'training';
+      model.normalizeData();
+      let options = {
+        epochs: 200
+      };
+      model.train(options, whileTraining, finishedTraining);
+   }
+  } else {
+    if (state == 'prediction') {
+      text('PREDICTION',110,110)
+      if (state2 == 'sitting') {
+      check_posture();
+      }
+    }
   }
   return false; // prevent default
 }
 
+function whileTraining(epoch, loss) {
+  console.log(epoch);
+}
+
+function finishedTraining() {
+  console.log('finished training.');
+  state = 'prediction';
+}
+
 function check_posture() {
-  // if (mouseIsPressed) {
-  //   if (mouseButton === LEFT) {
-  //     stroke(0, 0, 255);
-  //     text('('+str(int(tri_area))+')',50, 50)
-  //     print(mouseButton);
-  //     beep.play();
-  //   }
-  // }
-  //if (tri_area > 1500) {
-  let eye_level = (l_eye_pos.position.y + r_eye_pos.position.y)/2
-  if ( eye_level > eye_th) {
+  let inputs = {
+    lx: l_eye_pos.position.x,
+    ly: l_eye_pos.position.y,
+    rx: r_eye_pos.position.x,
+    ry: r_eye_pos.position.y,
+    nx: nose_pos.position.x,
+    ny: nose_pos.position.y,
+    area: tri_area
+  }
+  model.classify(inputs, get_results);
+}
+
+function get_results(error, results) {
+  if (error) {
+    console.error(error)
+    return;
+  }
+  label = results[0].label; 
+  console.log(label)
+  if (label == 'wrong') {
+    stroke(0, 0, 255);
+    //text('WRONG~~~~~~~~~~~~~~~~~~~~~~', 1,1)
     beep.play()
-    text('eye level = '+int(eye_level)+' eye_th = '+int(eye_th), 10,100)
+  } else {
+    //text('CORREC~~~~~~~~~~~~~~~~~~~~~~T', 1,1)
+  }
+}
+
+function timer2() {
+  let currTime = new Date();
+  var timeDiff = currTime - correct_currTime; //in ms
+  // strip the ms
+  timeDiff /= 1000;
+
+  // get seconds 
+  let seconds = Math.round(timeDiff);
+
+  //console.log(seconds + " seconds");
+  //text("time elapsed:"+hunch_seconds, 100, 170);
+  return seconds
+}
+
+
+function timer1() {
+  let currTime = new Date();
+  var timeDiff = currTime - startTime; //in ms
+  // strip the ms
+  timeDiff /= 1000;
+
+  // get seconds 
+  var seconds = Math.round(timeDiff);
+  //console.log(seconds + " seconds");
+  text("time elapsed:"+seconds, 100, 150);
+}
+
+function color_background() {
+  if (state == 'prediction') {
+    timer1()
+    if (label == 'wrong') {
+      let seconds = timer2()
+      prev_hunch_seconds = hunch_seconds+seconds
+      text("time elapsed:"+prev_hunch_seconds, 100, 170);
+      background(100,0,0,100) //r,g,b,opacity
+    } else {
+      hunch_seconds = prev_hunch_seconds
+      correct_currTime = new Date();
+    }
   }
 }
 
@@ -216,7 +316,6 @@ function start() {
   function stop() {
     select('#startbutton').html('start')
     document.getElementById('startbutton').addEventListener('click', start);
-    removeBlur();
     started = false;
     noLoop();
   }
@@ -225,27 +324,3 @@ function start() {
     startTime = new Date();
   };
   
-  function endtimer() {
-    endTime = new Date();
-    var timeDiff = endTime - startTime; //in ms
-    // strip the ms
-    timeDiff /= 1000;
-
-    console.log(startTime)
-    //console.log(endTime)
-  
-    // get seconds 
-    var seconds = Math.round(timeDiff);
-    console.log(seconds + " seconds");
-
-    correct_time_before_hunch = seconds;
-    console.log("total correct time = " + total_correct_time) 
-    console.log("correct hunch time " + correct_time_before_hunch)
-
-  }
-
-  function set_started() {
-    started = true;
-    console.log("set_started called")
-    starttimer();
-  }

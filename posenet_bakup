@@ -1,0 +1,178 @@
+let video;
+let poseNet;
+let poses = [];
+var started = false;
+var startTime, endTime;
+var total_hunched_time = 0; // in seconds
+var total_correct_time = 0; // in seconds
+var correct_time_before_hunch = 0; // in seconds.
+let global_nose_posX=0;
+let global_nose_posY=0;
+const HunchTimeOut = 2;
+
+function setup() {
+  let constraints = {
+    video: {
+      mandatory: {
+        minWidth: 640,
+        minHeight: 480
+      },
+      //optional: [{ maxFrameRate: 60 }]
+    },
+    audio: false 
+  };
+  // https://p5js.org/reference/#/p5/createCapture
+  // createCapture(constraints, function(stream) {
+  //   console.log(stream);
+  // });
+  const canvas = createCanvas(640, 480);
+  canvas.parent('videoContainer');
+
+  // Video capture
+  video = createCapture(constraints,VIDEO);
+  video.size(width, height); // 640, 480
+
+  // Create a new poseNet method with a single detection
+  poseNet = ml5.poseNet(video, modelReady);
+  // This sets up an event that fills the global variable "poses"
+  // with an array every time new poses are detected
+  poseNet.on('pose', function(results) {
+    poses = results;
+    //console.log(poses); 
+  });
+  
+  // Hide the video element, and just show the canvas
+  video.hide();
+}
+
+function draw() {
+    document.getElementById('myText').innerHTML = total_hunched_time;
+    if (started) {
+        image(video, 0, 0, width, height);
+        // We can call both functions to draw all keypoints and the skeletons
+        drawKeypoints();
+        drawSkeleton();
+        fill(0,255,0);
+        ellipse(global_nose_posX,global_nose_posY,50);
+    }
+}
+
+function modelReady() {
+    select('#status').html('model Loaded')
+}
+
+// A function to draw ellipses over the detected keypoints
+var defaultNosePosition = []
+function drawKeypoints()  {
+
+  // Loop through all the poses detected
+  for (let i = 0; i < poses.length; i++) {
+    // For each pose detected, loop through all the keypoints
+    let pose = poses[i].pose;
+    //console.log(pose.keypoints[0].position); 
+    let nose_pos = pose.keypoints[0].position;
+    global_nose_posX = lerp(global_nose_posX,nose_pos.x,0.2);
+    global_nose_posY = lerp(global_nose_posY,nose_pos.y,0.2);
+    let nose_pos_confidence = pose.keypoints[0].score;
+    if (nose_pos_confidence < 0.8) {
+      console.log("nose not found")
+    }
+    //Position of nose when a human opens experiment page. Start position.
+    while(defaultNosePosition.length < 1) {
+        console.log('in this while loop');
+        defaultNosePosition.push(nose_pos);
+        console.log(defaultNosePosition);
+      }
+    // if (Math.abs(nose_pos.y - defaultNosePosition[0].y) > 25) { //nose_pos.y > 200) { //FIXME: 25???
+    //     console.log(nose_pos);
+    //     console.log(defaultNosePosition);
+    //     started = false;
+    //     total_hunched_time += HunchTimeOut;
+    //     total_correct_time +=correct_time_before_hunch;
+    //     console.log("total hunched time = ");
+    //     console.log(total_hunched_time);
+    //     setTimeout(set_started, HunchTimeOut*1000);
+    // } else {
+    //   endtimer();
+
+    // }
+        //starttimer();
+    // } else {
+    //   console.log("pose corrected")
+    //   endtimer();
+    // }
+    for (let j = 0; j < pose.keypoints.length; j++) {
+      // A keypoint is an object describing a body part (like rightArm or leftShoulder)
+      let keypoint = pose.keypoints[j];
+      // Only draw an ellipse is the pose probability is bigger than 0.8
+      if (keypoint.score > 0.8) {
+        fill(255, 0, 0);
+        noStroke();
+        ellipse(keypoint.position.x, keypoint.position.y, 10, 10);
+      } 
+    }
+  }
+}
+
+// A function to draw the skeletons
+function drawSkeleton() {
+  // Loop through all the skeletons detected
+  for (let i = 0; i < poses.length; i++) {
+    let skeleton = poses[i].skeleton;
+    // For every skeleton, loop through all body connections
+    for (let j = 0; j < skeleton.length; j++) {
+      let partA = skeleton[j][0];
+      let partB = skeleton[j][1];
+      stroke(255, 0, 0);
+      line(partA.position.x, partA.position.y, partB.position.x, partB.position.y);
+    }
+  }
+}
+
+// This function turns on AI
+function start() {
+    select('#startbutton').html('stop')
+    document.getElementById('startbutton').addEventListener('click', stop);
+    started = true;
+    console.log(started);
+    loop();
+    starttimer();
+  }
+  
+  // This function stops the experiment
+  function stop() {
+    select('#startbutton').html('start')
+    document.getElementById('startbutton').addEventListener('click', start);
+    removeBlur();
+    started = false;
+    noLoop();
+  }
+
+  function starttimer() {
+    startTime = new Date();
+  };
+  
+  function endtimer() {
+    endTime = new Date();
+    var timeDiff = endTime - startTime; //in ms
+    // strip the ms
+    timeDiff /= 1000;
+
+    console.log(startTime)
+    //console.log(endTime)
+  
+    // get seconds 
+    var seconds = Math.round(timeDiff);
+    console.log(seconds + " seconds");
+
+    correct_time_before_hunch = seconds;
+    console.log("total correct time = " + total_correct_time) 
+    console.log("correct hunch time " + correct_time_before_hunch)
+
+  }
+
+  function set_started() {
+    started = true;
+    console.log("set_started called")
+    starttimer();
+  }

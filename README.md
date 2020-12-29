@@ -61,3 +61,8 @@ Id	Part
 1. Shoulder points are not detected in the front view of the camera
 
 # https://discourse.processing.org/t/p5-loadsound-not-defined/2291
+
+# can you run p5.js with external webcam instead of inbuilt camera?
+# try this instead of posenet since it might be fast? https://learn.ml5js.org/#/reference/face-api
+
+#http://127.0.0.1:5501/index.html
