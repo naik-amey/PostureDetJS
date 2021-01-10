@@ -18,16 +18,11 @@ The idea behind using triangle area is to comprehend depth (distance between pla
 # How to Use:
 Initial:
 1. Once the page is opened, click on "start" button. At this point you should be able to see yourself with markers around eyes and nose. 
-
-Training:
-2. Press "SPACE BAR" everytime you are in a ergonomically correct posture, you can turn your head sideways etc. Collect atleast 10 samples for better training.
-3. Press "down arrow key" everytime you are in a ergonomically wrong posture, you can hunch or take any other wrong posture. Collect atleast 10 samples for better training.
+2. (Training) Press "SPACE BAR" everytime you are in a ergonomically correct posture, you can turn your head sideways etc. Collect atleast 10 samples for better training.
+3. (Training) Press "down arrow key" everytime you are in a ergonomically wrong posture, you can hunch or take any other wrong posture. Collect atleast 10 samples for better training.
 - You can repeat step 2 & 3 any number of times you like, but make sure you don't take too many as this might slow down the training time.
-
 4. Press "t" key to start the training. At this point you might have to wait for 200 epochs to be completed.
-
-Classification
-5. That's it! Once, the training is complete, you will be notified with a sound, everytime you hunch. Also, a timer is displayed to indicate the time you are infront of the computer and the time you were in wrong posture. 
+5. (Classification) That's it! Once, the training is complete, you will be notified with a sound, everytime you hunch. Also, a timer is displayed to indicate the time you are infront of the computer and the time you were in wrong posture. 
 
 # Sources: 
 1. https://gist.github.com/mohdsanadzakirizvi/ce95bcb560eeae899ff6852fda8757a6
