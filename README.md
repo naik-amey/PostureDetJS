@@ -16,7 +16,6 @@ System takes webcam input, uses posenet model to determine eyes and nose. The co
 The idea behind using triangle area is to comprehend depth (distance between plane formed with face and the camera).
 
 # How to Use:
-Initial:
 1. Once the page is opened, click on "start" button. At this point you should be able to see yourself with markers around eyes and nose. 
 2. (Training) Press "SPACE BAR" everytime you are in a ergonomically correct posture, you can turn your head sideways etc. Collect atleast 10 samples for better training.
 3. (Training) Press "down arrow key" everytime you are in a ergonomically wrong posture, you can hunch or take any other wrong posture. Collect atleast 10 samples for better training.
