@@ -8,6 +8,10 @@ let beep
 let label
 let hunch_seconds, prev_hunch_seconds
 let valid_seconds, prev_valid_seconds
+let button;
+let font
+let alert_en
+let button_ss
 
 // MODEL
 let model;
@@ -16,6 +20,7 @@ let state2 = 'sitting'
 
 function preload() {
   beep = loadSound("beep-10.mp3"); 
+  font = loadFont('assets/SourceSansPro-Regular.otf');
 }
 
 function setup() {
@@ -41,7 +46,8 @@ function setup() {
   // default nn has 16 nodes in dense hidden layer with [inputs -> 16_dense_hidden_nodes->dense_softmax]
   model = ml5.neuralNetwork(options)
 
-  const canvas = createCanvas(640, 480);
+  //const canvas = createCanvas(640, 480);
+  const canvas = createCanvas(650, 500);
   canvas.parent('videoContainer');
 
   // Video capture
@@ -70,6 +76,20 @@ function setup() {
   // Hide the video element, and just show the canvas
   video.hide();
 
+  // button
+  button = createButton('ALERT');
+  button_ss = createButton('START');
+
+}
+
+function greet(){
+  if (button.elt.outerText == "ALERT") {
+    button.html("DON'T ALERT")
+    alert_en = 1
+  } else {
+    button.html("ALERT")
+    alert_en = 0
+  }
 }
 
 function draw() {
@@ -77,9 +97,12 @@ function draw() {
         image(video, 0, 0, width, height);
         drawKeypoints();
         key_operations();
+        button.mousePressed(greet);
         if (state == 'prediction') {
           color_background();
         }
+    } else {
+      button_ss.mousePressed(start_stop)
     }
 }
 
@@ -148,12 +171,13 @@ function key_operations() {
       text('Training started!', 50,50)
       state = 'training';
       model.normalizeData();
-      let options = {epochs: 200};
+      let options = {epochs: 150}; //temp
       model.train(options, whileTraining, finishedTraining);
    }
   } else {
     if (state == 'prediction') {
       text('Now Predicting',50,50)
+      select('#status1').html('Now Predicting') // sets the status variable in index.html
       if (state2 == 'sitting') {
       check_posture();
       }
@@ -203,8 +227,9 @@ function get_results(error, results) {
   text('Prediction:'+label, 50,80)
   if (label == 'wrong') {
     stroke(0, 0, 255);
-    //text('WRONG~~~~~~~~~~~~~~~~~~~~~~', 1,1)
-    beep.play()
+    if (alert_en == 1){ 
+      beep.play()
+    }
   } else {
     //text('CORREC~~~~~~~~~~~~~~~~~~~~~~T', 1,1)
   }
@@ -234,10 +259,24 @@ function timer1() {
   return tot_sec
 }
 
+//let font;
+let textString;
+
 function color_background() {
   if (state == 'prediction') {
+    //textAlign(CENTER);
+    //text("Time spent at Desk: "+valid_seconds+" secs, Time you hunched for: "+hunch_seconds+" secs", 320, 490);
+    textString = "Time spent at Desk: "+valid_seconds+" secs, Time you hunched for: "+hunch_seconds+" secs"
+    let bbox = font.textBounds(textString, 320, 490, 15);
+    fill(255);
+    stroke(0);
+    rect(bbox.x, bbox.y, bbox.w, bbox.h);
+    fill(0);
+    noStroke();
+    textFont(font);
+    textSize(12);
     textAlign(CENTER);
-    text("time elapsed:"+valid_seconds+" you hunched for:"+hunch_seconds, 320, 400);
+    text(textString, 320, 490);
     if (state2 == 'sitting') {
       let tot_sec = timer1()
       valid_seconds = prev_valid_seconds+tot_sec
@@ -256,23 +295,18 @@ function color_background() {
   }
 }
 
-// This function turns on AI
-function start() {
-    select('#startbutton').html('stop')
-    document.getElementById('startbutton').addEventListener('click', stop);
-    started = true;
-    console.log(started);
+function start_stop() {
+  if (button_ss.elt.outerText == "START") {
+    button_ss.html("STOP")
+    started = true
     loop();
     starttimer();
-  }
-  
-  // This function stops the experiment
-  function stop() {
-    select('#startbutton').html('start')
-    document.getElementById('startbutton').addEventListener('click', start);
-    started = false;
+  } else {
+    button_ss.html("START")
+    alert_en = false
     noLoop();
   }
+}
 
   function starttimer() {
     startTime = new Date();

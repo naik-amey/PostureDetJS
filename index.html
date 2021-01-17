@@ -17,18 +17,17 @@
   </style>
 </head>
 <body>
-  <h1>PoseNet demo with Ml5.js</h1>
+  <h1>Ergonomic Assessment Using PosNet</h1>
   <p id="status">Loading Model...</p>
+  <p id="status1">Press the "START" button when you are ready. Then press "Space-Bar" to capture correct poses and "down-arrow" key for incorrect poses. <br/>
+  Make sure you capture with all possible head turns. <br/>
+  Once you collect enough samples for each class, press "t" to start the training.<br/></p>
   <div id="videoContainer"></div>
   <!-- load the posenet.js file -->
   <script src="posenet.js"></script>
   <div class="card pink left_shadow ">
-    </div>
-    <div id="startbuttonCont" class="right_align">
-      <button class="yellow right_shadow" onclick="start()" id="startbutton">
-        START
-      </button>
-    </div>
   </div>
+  <p>Application won't count time if you are not in front of the screen.</p>
+  <p>Press "ALERT" button if you want to be alerted with a sound whenever you hunch.</p>
 </body>
 </html>
